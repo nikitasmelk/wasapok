@@ -36,6 +36,24 @@
       pointer-events:auto;
       touch-action:manipulation;
     }
+    #enableMotion {
+position:fixed;
+right:16px;
+z-index:10000;
+padding:8px 12px;
+border-radius:10px;
+border:1px solid #669b80df;
+background:#0c1f31;
+color:#b4ffd6;
+font:600 12px/1.2 system-ui;
+font-family: 'Sprintura';
+letter-spacing:.05em;
+box-shadow:0 6px 20px #0007
+}
+
+#fun{
+  color: #f5f246;
+}
   </style>
 </head>
 <body>
@@ -144,7 +162,8 @@
   </div>
 
   <!-- <button id="toggleControls">Controls (H)</button> -->
-  <button id="enableMotion">Enable Fun</button>
+  <!-- <button id="enableMotion">Enable Fun</button> -->
+  <div id="enableMotion"> <span id="fun">E</span>nable <span id="fun">F</span>un</div>
 
   <script type="importmap">
     {
@@ -544,7 +563,8 @@
       ? 'Biome \n.•.•.•:::Plain.'
       : 'Biome .•.•.•:::Plain.';
     const FONT_URL='./Sprintura.otf';
-    const headerGroup=new THREE.Group(); scene.add(headerGroup);
+    const headerGroup=new THREE.Group(); 
+    scene.add(headerGroup);
     let headerMesh=null, headerMat=null, headerFont=null;
     const headerCfg={
       sizeMul: CONFIG.header?.sizeMul ?? 1.0,
@@ -878,8 +898,8 @@
       if(!hits.length) return false;
       const obj = hits[0].object;
       let url = null;
-      if(obj === spotifyBadge) url = 'https://open.spotify.com/';
-      else if(obj === appleBadge) url = 'https://music.apple.com/';
+      if(obj === spotifyBadge) url = 'https://open.spotify.com/album/56nqfRzDXsfFjm5Pl1wKhf?si=4MAm0FpYSB2DodAE9SYkmQ';
+      else if(obj === appleBadge) url = 'https://music.apple.com/us/album/biome-plain-ep/1858512958';
       if(!url) return false;
       window.open(url, '_blank', 'noopener');
       return true;
