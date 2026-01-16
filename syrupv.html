@@ -57,9 +57,7 @@
       box-shadow:0 6px 20px #0007
     }
 
-    #fun{
-      color: #f5f246;
-    }
+    #fun{ color: #f5f246; }
   </style>
 </head>
 <body>
@@ -391,26 +389,29 @@
     const CONFIG = structuredClone(presetChoice==='phone' ? phone : desktop);
 
     /* ============================================================
-       ALBUM SWITCH (NEW): spin right => Album A, spin left => Album B
+       ALBUM SWITCH: spin right => Album A, spin left => Album B
        ============================================================ */
     const ALBUMS = {
       A: {
         // Original album (spin right / angVel >= 0)
         titleDesktop: 'Biome .•.•.•:::Plain.',
-        titlePhone:   'Biome \\n.•.•.•:::Plain.',
+        titlePhone:   'Biome \n.•.•.•:::Plain.',  // IMPORTANT: real newline on mobile
         wallImage:    '/reilly-album-cvr.jpeg',
         audioUrl:     './soundtrackComp.mp3',
         spotifyUrl:   'https://open.spotify.com/album/56nqfRzDXsfFjm5Pl1wKhf?si=4MAm0FpYSB2DodAE9SYkmQ',
-        appleUrl:     'https://music.apple.com/us/album/biome-plain-ep/1858512958'
+        appleUrl:     'https://music.apple.com/us/album/biome-plain-ep/1858512958',
+        zoomTerminalValues: [0.66, 0.48, 0.88, 0.96, 3.2]
       },
       B: {
         // New album (spin left / angVel < 0)
         titleDesktop: 'Palm Tree Syrup',
-        titlePhone:   'Palm Tree\\nSyrup',
+        titlePhone:   'Palm Tree\nSyrup',          // IMPORTANT: real newline on mobile
         wallImage:    '/palm_tree.jpeg',
         audioUrl:     './soundtrackSyrup.mp3',
         spotifyUrl:   'https://open.spotify.com/album/7w2jzK97H1Uwois7kgHxdN?si=pCyBuTLKQFKpFT_toUBHtA',
-        appleUrl:     'https://music.apple.com/us/album/palm-tree-syrup-ep/1869613519'
+        appleUrl:     'https://music.apple.com/us/album/palm-tree-syrup-ep/1869613519',
+        // NEW: different zoom terminals for Album B
+        zoomTerminalValues: [1.38, 0.66, 4.0, 0.87]
       }
     };
 
@@ -418,15 +419,19 @@
       return (v < 0) ? 'B' : 'A';
     }
 
-    let currentAlbumKey = 'A'; // default on load (matches original behavior)
+    let currentAlbumKey = 'A'; // default on load
+
     function getHeaderTextForAlbum(key){
       return (presetChoice === 'phone') ? ALBUMS[key].titlePhone : ALBUMS[key].titleDesktop;
     }
 
-    /* ---------- zoom state ---------- */
+    /* ---------- zoom state (UPDATED: per-album terminals) ---------- */
     let zoomBase = CONFIG.room.imageZoom;
     let zoomCurrent = CONFIG.room.imageZoom;
-    const ZOOM_TERMINAL_VALUES = [0.66, 0.48, 0.88, 0.96, 3.2];
+
+    function getZoomTerminals(){
+      return ALBUMS[currentAlbumKey]?.zoomTerminalValues || [0.66, 0.48, 0.88, 0.96, 3.2];
+    }
 
     /* ---------- renderer, scene, camera ---------- */
     const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true, powerPreference:'high-performance'});
@@ -443,7 +448,7 @@
     const camera = new THREE.PerspectiveCamera(55, vw()/vh(), 0.1, 100);
     camera.position.set(0,0,7.5);
 
-    /* ---------- wall (UPDATED: preload two textures + swap map) ---------- */
+    /* ---------- wall (preload two textures + swap map) ---------- */
     const tLoader = new THREE.TextureLoader(); tLoader.setCrossOrigin("anonymous");
 
     function applyTextureZoom(texture, z){
@@ -462,7 +467,6 @@
         t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
         t.anisotropy = renderer.capabilities.getMaxAnisotropy();
         applyTextureZoom(t, CONFIG.room.imageZoom);
-        // If this album is currently active, ensure map is correct after load
         if(currentAlbumKey === key && wallMat){
           wallMat.map = t;
           wallMat.needsUpdate = true;
@@ -472,7 +476,6 @@
       return tex;
     }
 
-    // Preload both
     const wallTexA = loadWallTexture('A', ALBUMS.A.wallImage);
     const wallTexB = loadWallTexture('B', ALBUMS.B.wallImage);
     let currentWallTex = wallTexA;
@@ -515,7 +518,7 @@
     }
 
     function triggerZoomJump(){
-      const vals = ZOOM_TERMINAL_VALUES;
+      const vals = getZoomTerminals();
       const eps = 1e-3;
       let candidates = vals.filter(v => Math.abs(v - zoomCurrent) > eps);
       if(candidates.length === 0) candidates = vals.slice();
@@ -528,7 +531,6 @@
       if(!force && key === currentAlbumKey) return;
       currentAlbumKey = key;
 
-      // swap wall texture (instant if loaded)
       const tex = wallTextures[key];
       if(tex){
         currentWallTex = tex;
@@ -537,10 +539,7 @@
         applyTextureZoom(currentWallTex, zoomCurrent);
       }
 
-      // swap header text
       if(headerFont) rebuildHeaderGeometry();
-
-      // swap audio loop (if already started)
       switchAudioTo(key).catch(()=>{});
     }
 
@@ -740,7 +739,7 @@
 
       angVel += dv;
 
-      // NEW: switch album immediately based on spin direction
+      // album switches by direction (side)
       setAlbum(albumKeyFromAngVel(angVel));
 
       if(prevVel !== 0 && dv*prevVel < 0){
@@ -770,7 +769,7 @@
 
       if(requestExtendHold && Math.abs(angVel) >= FULL_SPIN*0.98){
         if(!holdActive){
-          triggerZoomJump();
+          triggerZoomJump(); // uses per-album terminal set
         }
         holdActive = true;
         const s = Math.sign(angVel) || (holdDir || 1);
@@ -796,7 +795,7 @@
         }
       }
 
-      // Keep album in sync even after hold/inertia (covers non-drag changes)
+      // keep album synced after inertia/hold
       setAlbum(albumKeyFromAngVel(angVel));
 
       const maxSpin = FULL_SPIN*100.0;
@@ -887,7 +886,7 @@
     function updateWaterCenter(){ if(!vaseReady) return; const w=new THREE.Vector3(); vaseGroup.getWorldPosition(w); const y=waterMesh.getWorldPosition(new THREE.Vector3()).y; waterUniforms.uCenter.value.set(w.x,y,w.z); }
     rebuildWaterCircle(); resizeWater();
 
-    /* ---------- badges (flat planes) ---------- */
+    /* ---------- badges ---------- */
     const badgeGroup = new THREE.Group();
     scene.add(badgeGroup);
     badgeGroup.visible = false;
@@ -961,7 +960,7 @@
 
     buildBadges();
 
-    /* ---------- badge raycast + scoped mouse/touch handling (canvas only) ---------- */
+    /* ---------- badge raycast ---------- */
     const raycaster=new THREE.Raycaster();
     const pointer=new THREE.Vector2();
 
@@ -979,7 +978,6 @@
       const obj = hits[0].object;
       let url = null;
 
-      // UPDATED: choose link based on current album
       if(obj === spotifyBadge) url = ALBUMS[currentAlbumKey].spotifyUrl;
       else if(obj === appleBadge) url = ALBUMS[currentAlbumKey].appleUrl;
 
@@ -1002,7 +1000,7 @@
       }
     }, {passive:false});
 
-    /* ---------- audio (UPDATED: dual buffers + swap per album) ---------- */
+    /* ---------- audio (dual buffers + swap per album) ---------- */
     const A_IDLE=0.25, A_IDLE_LPF=380, A_NORM=1.0, A_NORM_LPF=18000, A_SMOOTH=0.18;
 
     let audioCtx=null;
@@ -1058,7 +1056,6 @@
       if(audioCtx.state==='suspended' && force){
         try{await audioCtx.resume()}catch{}
       }
-      // ensure current album buffer
       try{ await loadAudio(audioCtx, currentAlbumKey); }catch(e){ return; }
       if(!audioStarted){
         startSource(audioCtx, currentAlbumKey);
@@ -1081,7 +1078,6 @@
         return;
       }
       startSource(audioCtx, key);
-      // immediately nudge toward current spin speed
       updateAudio(Math.abs(angVel));
     }
 
@@ -1181,8 +1177,6 @@
       key.position.set(1.5,-ROOM_H*0.1, room.position.z + ROOM_D*0.05);
       resizePost(); applyVaseScale(); resizeWater(); adjustRoomToViewport(); updateBadgesTransform();
       badgeGroup.rotation.copy(room.rotation);
-
-      // ensure wall texture zoom stays correct across resize
       applyTextureZoom(currentWallTex, zoomCurrent);
     }
     window.addEventListener('resize',updateLayout,{passive:true});
@@ -1195,7 +1189,7 @@
     setupInput();
     updateLayout();
 
-    // ensure initial album state is applied (A by default)
+    // apply initial album state
     setAlbum(currentAlbumKey, {force:true});
 
     /* ---------- UI + bindings ---------- */
@@ -1340,6 +1334,7 @@
       snap.vase.z=vaseGroup.position.z; snap.vase.y=vaseGroup.position.y;
       snap._internal={WATER_RADIUS_FACTOR,TILT_MARGIN}; snap._preset=presetChoice;
       snap._album=currentAlbumKey;
+      snap._zoomTerminals = getZoomTerminals();
       snap.header={
         opacity:headerMat?headerMat.opacity:0,
         sizeMul:headerCfg.sizeMul,
